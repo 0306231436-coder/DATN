@@ -25,4 +25,14 @@ export const authService = {
   updateUser: (id, data) => {
     return axiosClient.put(`/NguoiDung/${id}`, data);
   },
+
+  // Khóa / Mở khóa tài khoản (PUT: api/NguoiDung/{id}/trang-thai)
+  toggleUserStatus: (id) => {
+    return axiosClient.put(`/NguoiDung/${id}/trang-thai`);
+  },
+
+  // Xóa người dùng (DELETE: api/NguoiDung/{id})
+  deleteUser: (id) => {
+    return axiosClient.delete(`/NguoiDung/${id}`);
+  },
 };

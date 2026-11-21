@@ -83,7 +83,7 @@ const menuItems = [
   { label: 'Thương hiệu', icon: Megaphone, to: '/admin/thuong-hieu' },
   { label: 'Thông tin cửa hàng', icon: Store, to: '/admin/trang' },
   { label: 'Đơn hàng', icon: ClipboardList, to: '/admin/don-hang', badge: '8' },
-  // { label: 'Khách hàng', icon: Users, to: '/admin/khach-hang' },
+  { label: 'Khách hàng', icon: Users, to: '/admin/khach-hang' },
   { label: 'Báo cáo', icon: ChartNoAxesCombined, to: '/admin/bao-cao' },
 ];
 
