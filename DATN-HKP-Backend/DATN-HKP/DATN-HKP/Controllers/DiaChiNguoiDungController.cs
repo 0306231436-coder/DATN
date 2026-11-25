@@ -2,11 +2,14 @@ using DATN_HKP.Data;
 using DATN_HKP.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace DATN_HKP.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class DiaChiNguoiDungController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -20,6 +23,11 @@ namespace DATN_HKP.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<DiaChiNguoiDung>>> GetDiaChiNguoiDungs([FromQuery] int? maNguoiDung)
         {
+            if (maNguoiDung.HasValue && !CanAccessUser(maNguoiDung.Value))
+            {
+                return Forbid();
+            }
+
             IQueryable<DiaChiNguoiDung> query = _context.DiaChiNguoiDungs.AsNoTracking();
 
             if (maNguoiDung.HasValue)
@@ -47,6 +55,10 @@ namespace DATN_HKP.Controllers
             {
                 return NotFound(new { message = $"Không tìm thấy địa chỉ có mã {id}" });
             }
+            if (!CanAccessUser(diaChi.MaNguoiDung))
+            {
+                return Forbid();
+            }
 
             return Ok(diaChi);
         }
@@ -55,6 +67,11 @@ namespace DATN_HKP.Controllers
         [HttpGet("user/{maNguoiDung:int}")]
         public async Task<ActionResult<IEnumerable<DiaChiNguoiDung>>> GetByUser(int maNguoiDung)
         {
+            if (!CanAccessUser(maNguoiDung))
+            {
+                return Forbid();
+            }
+
             var addresses = await _context.DiaChiNguoiDungs
                 .Where(d => d.MaNguoiDung == maNguoiDung)
                 .AsNoTracking()
@@ -72,6 +89,10 @@ namespace DATN_HKP.Controllers
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
+            }
+            if (!CanAccessUser(model.MaNguoiDung))
+            {
+                return Forbid();
             }
 
             // Kiểm tra user tồn tại
@@ -116,6 +137,10 @@ namespace DATN_HKP.Controllers
             {
                 return NotFound(new { message = $"Không tìm thấy địa chỉ có mã {id}" });
             }
+            if (!CanAccessUser(existing.MaNguoiDung))
+            {
+                return Forbid();
+            }
 
             // Không cho phép đổi chủ sở hữu địa chỉ
             if (existing.MaNguoiDung != model.MaNguoiDung)
@@ -154,6 +179,10 @@ namespace DATN_HKP.Controllers
             {
                 return NotFound(new { message = $"Không tìm thấy địa chỉ có mã {id}" });
             }
+            if (!CanAccessUser(address.MaNguoiDung))
+            {
+                return Forbid();
+            }
 
             // Bỏ mặc định tất cả địa chỉ khác của user
             await UnsetDefaultAddresses(address.MaNguoiDung);
@@ -172,6 +201,10 @@ namespace DATN_HKP.Controllers
             if (address == null)
             {
                 return NotFound(new { message = $"Không tìm thấy địa chỉ có mã {id}" });
+            }
+            if (!CanAccessUser(address.MaNguoiDung))
+            {
+                return Forbid();
             }
 
             var wasDefault = address.LaMacDinh;
@@ -209,6 +242,17 @@ namespace DATN_HKP.Controllers
             {
                 item.LaMacDinh = false;
             }
+        }
+
+        private bool CanAccessUser(int maNguoiDung)
+        {
+            if (User.IsInRole("Admin"))
+            {
+                return true;
+            }
+
+            var subject = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            return int.TryParse(subject, out var currentUserId) && currentUserId == maNguoiDung;
         }
     }
 }

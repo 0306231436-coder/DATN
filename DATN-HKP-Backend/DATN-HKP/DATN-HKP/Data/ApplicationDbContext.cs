@@ -28,5 +28,6 @@ namespace DATN_HKP.Data
         public DbSet<DonHang> DonHangs { get; set; }
         public DbSet<ChiTietDonHang> ChiTietDonHangs { get; set; }
         public DbSet<DanhGia> DanhGias { get; set; }
+        public DbSet<LogThanhToan> LogThanhToans { get; set; }
     }
 }

@@ -83,6 +83,11 @@ export function getOrderId(order) {
   return getApiField(order, 'maDonHang', 'MaDonHang', 'id', 'Id');
 }
 
+export function getOrderDisplayCode(order) {
+  return getApiField(order, 'maDonHangHienThi', 'MaDonHangHienThi', 'maDonHangHienThiDisplay')
+    || getOrderId(order);
+}
+
 export function getOrderCustomer(order) {
   const customer = getApiField(order, 'nguoiDung', 'NguoiDung', 'khachHang', 'KhachHang', 'user', 'User') || {};
   return getApiField(order, 'tenNguoiNhan', 'TenNguoiNhan')

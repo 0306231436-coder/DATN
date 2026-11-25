@@ -3,11 +3,14 @@ using DATN_HKP.DTOs.GioHang;
 using DATN_HKP.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace DATN_HKP.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class ChiTietGioHangController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -21,6 +24,11 @@ namespace DATN_HKP.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ChiTietGioHang>>> GetChiTietGioHangs([FromQuery] string? maNguoiDung)
         {
+            if (!CanAccessUser(maNguoiDung))
+            {
+                return Forbid();
+            }
+
             if (string.IsNullOrWhiteSpace(maNguoiDung) || maNguoiDung.StartsWith("guest", StringComparison.OrdinalIgnoreCase))
             {
                 return Ok(new List<ChiTietGioHang>());
@@ -40,6 +48,11 @@ namespace DATN_HKP.Controllers
         [HttpGet("user/{maNguoiDung}")]
         public async Task<ActionResult<IEnumerable<ChiTietGioHang>>> GetByUser(string maNguoiDung)
         {
+            if (!CanAccessUser(maNguoiDung))
+            {
+                return Forbid();
+            }
+
             if (string.IsNullOrWhiteSpace(maNguoiDung) || maNguoiDung.StartsWith("guest", StringComparison.OrdinalIgnoreCase))
             {
                 return Ok(new List<ChiTietGioHang>());
@@ -98,6 +111,11 @@ namespace DATN_HKP.Controllers
                 return Unauthorized(new { message = "Tài khoản người dùng không tồn tại. Vui lòng đăng nhập để thực hiện thêm vào giỏ hàng." });
             }
 
+            if (!CanAccessUser(member.MaNguoiDung.ToString()))
+            {
+                return Forbid();
+            }
+
             if (!member.TrangThai)
             {
                 return StatusCode(403, new { message = "Tài khoản của bạn đã bị khóa. Không thể thêm sản phẩm vào giỏ hàng." });
@@ -133,6 +151,25 @@ namespace DATN_HKP.Controllers
                                        && c.MaBienThe == maBienTheClean);
 
             int quantityToAdd = request.SoLuong > 0 ? request.SoLuong : 1;
+            var availableStock = maBienTheClean.HasValue
+                ? await _context.BienTheSanPhams
+                    .Where(v => v.MaBienThe == maBienTheClean.Value && v.MaSanPham == request.MaSanPham)
+                    .Select(v => (int?)v.SoLuongTon)
+                    .FirstOrDefaultAsync()
+                : await _context.SanPhams
+                    .Where(p => p.MaSanPham == request.MaSanPham)
+                    .Select(p => (int?)p.SoLuong)
+                    .FirstOrDefaultAsync();
+            if (!availableStock.HasValue)
+            {
+                return BadRequest(new { message = "Sản phẩm hoặc biến thể không tồn tại." });
+            }
+
+            var currentQuantity = existingItem?.SoLuong ?? 0;
+            if (currentQuantity + quantityToAdd > availableStock.Value)
+            {
+                return Conflict(new { message = $"Số lượng trong giỏ vượt quá tồn kho hiện có ({availableStock.Value})." });
+            }
 
             if (existingItem != null)
             {
@@ -182,6 +219,28 @@ namespace DATN_HKP.Controllers
             {
                 return NotFound(new { message = $"Không tìm thấy chi tiết giỏ hàng mã {id}" });
             }
+            if (!CanAccessUser(item.MaNguoiDung))
+            {
+                return Forbid();
+            }
+
+            var availableStock = item.MaBienThe.HasValue
+                ? await _context.BienTheSanPhams
+                    .Where(v => v.MaBienThe == item.MaBienThe.Value && v.MaSanPham == item.MaSanPham)
+                    .Select(v => (int?)v.SoLuongTon)
+                    .FirstOrDefaultAsync()
+                : await _context.SanPhams
+                    .Where(p => p.MaSanPham == item.MaSanPham)
+                    .Select(p => (int?)p.SoLuong)
+                    .FirstOrDefaultAsync();
+            if (!availableStock.HasValue)
+            {
+                return BadRequest(new { message = "Sản phẩm hoặc biến thể không còn tồn tại." });
+            }
+            if (request.SoLuong > availableStock.Value)
+            {
+                return Conflict(new { message = $"Số lượng yêu cầu vượt quá tồn kho hiện có ({availableStock.Value})." });
+            }
 
             item.SoLuong = request.SoLuong;
 
@@ -209,6 +268,10 @@ namespace DATN_HKP.Controllers
             {
                 return NotFound(new { message = $"Không tìm thấy chi tiết giỏ hàng mã {id}" });
             }
+            if (!CanAccessUser(item.MaNguoiDung))
+            {
+                return Forbid();
+            }
 
             _context.ChiTietGioHangs.Remove(item);
 
@@ -231,6 +294,11 @@ namespace DATN_HKP.Controllers
         [HttpDelete("user/{maNguoiDung}")]
         public async Task<IActionResult> ClearCart(string maNguoiDung)
         {
+            if (!CanAccessUser(maNguoiDung))
+            {
+                return Forbid();
+            }
+
             if (string.IsNullOrWhiteSpace(maNguoiDung) || maNguoiDung.StartsWith("guest", StringComparison.OrdinalIgnoreCase))
             {
                 return Ok(new { message = "Giỏ hàng đã trống." });
@@ -273,6 +341,22 @@ namespace DATN_HKP.Controllers
                     detail = ex.GetBaseException().Message
                 });
             }
+        }
+
+        private bool CanAccessUser(string? requestedUser)
+        {
+            if (User.IsInRole("Admin"))
+            {
+                return true;
+            }
+
+            var subject = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrWhiteSpace(subject) || string.IsNullOrWhiteSpace(requestedUser))
+            {
+                return false;
+            }
+
+            return subject == requestedUser.Trim();
         }
     }
 }

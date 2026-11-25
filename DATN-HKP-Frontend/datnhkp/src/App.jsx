@@ -11,6 +11,7 @@ import RegisterPage from './pages/public/RegisterPage.jsx';
 import LoginPage from './pages/public/LoginPage.jsx';
 import CheckoutPage from './pages/public/CheckoutPage.jsx';
 import OrderHistoryPage from './pages/public/OrderHistoryPage.jsx';
+import OrderLookupPage from './pages/public/OrderLookupPage.jsx';
 import AccountPage from './pages/public/AccountPage.jsx';
 import AdminPage from './pages/admin/AdminPage.jsx';
 import AdminLayout from './pages/admin/AdminLayout.jsx';
@@ -70,6 +71,10 @@ export default function App() {
           <Route path="/san-pham/:productId" element={<ProductDetailPage />} />
           <Route path="/gio-hang" element={<CartPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
+          <Route
+            path="/tra-cuu-don-hang"
+            element={<OrderLookupPage />}
+          />
           <Route path="/don-hang" element={<RequireUser><OrderHistoryPage /></RequireUser>} />
           <Route path="/tai-khoan" element={<RequireUser><AccountPage /></RequireUser>} />
           <Route path="/dang-nhap" element={<LoginPage />} />

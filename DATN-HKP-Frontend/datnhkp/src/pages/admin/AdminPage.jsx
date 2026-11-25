@@ -9,6 +9,7 @@ import {
   getApiField,
   getApiList,
   getOrderCustomer,
+  getOrderDisplayCode,
   getOrderId,
   getOrderStatusStyle,
   normalizeOrderStatus,
@@ -175,8 +176,9 @@ export default function AdminPage() {
             <tbody className="divide-y divide-slate-100">
               {loading ? <tr><td className="px-6 py-8 text-center text-sm text-slate-500" colSpan={5}>Đang tải đơn hàng...</td></tr> : recentOrders.map((order, index) => {
                 const id = getOrderId(order);
+                const displayCode = getOrderDisplayCode(order);
                 const status = getApiField(order, 'trangThai', 'TrangThai') || 'Chưa cập nhật';
-                return <tr className="text-xs" key={id ?? index}><td className="whitespace-nowrap px-6 py-4 font-bold text-green-800">#{id ?? '—'}</td><td className="whitespace-nowrap px-4 py-4 font-semibold text-slate-700">{getOrderCustomer(order)}</td><td className="whitespace-nowrap px-4 py-4 text-slate-500">{formatApiDate(getDate(order), { dateStyle: 'short' })}</td><td className="whitespace-nowrap px-4 py-4 font-bold text-slate-800">{formatCurrency(Number(getApiField(order, 'tongTien', 'TongTien', 'tongThanhToan', 'TongThanhToan')) || 0)}</td><td className="whitespace-nowrap px-4 py-4"><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${getOrderStatusStyle(status)}`}>{status}</span></td></tr>;
+                return <tr className="text-xs" key={id ?? index}><td className="whitespace-nowrap px-6 py-4 font-bold text-green-800">{displayCode ?? '—'}</td><td className="whitespace-nowrap px-4 py-4 font-semibold text-slate-700">{getOrderCustomer(order)}</td><td className="whitespace-nowrap px-4 py-4 text-slate-500">{formatApiDate(getDate(order), { dateStyle: 'short' })}</td><td className="whitespace-nowrap px-4 py-4 font-bold text-slate-800">{formatCurrency(Number(getApiField(order, 'tongTien', 'TongTien', 'tongThanhToan', 'TongThanhToan')) || 0)}</td><td className="whitespace-nowrap px-4 py-4"><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${getOrderStatusStyle(status)}`}>{status}</span></td></tr>;
               })}
               {!loading && recentOrders.length === 0 && <tr><td className="px-6 py-8 text-center text-sm text-slate-500" colSpan={5}>{available.orders ? 'Chưa có đơn hàng.' : 'Không tải được dữ liệu đơn hàng.'}</td></tr>}
             </tbody>

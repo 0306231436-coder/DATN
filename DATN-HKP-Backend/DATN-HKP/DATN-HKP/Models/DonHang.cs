@@ -1,12 +1,18 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
 
 namespace DATN_HKP.Models
 {
+    [Index(nameof(MaDonHangHienThi), IsUnique = true)]
     public class DonHang
     {
         [Key]
         public int MaDonHang { get; set; }
+
+        [StringLength(30)]
+        [Display(Name = "Mã đơn hàng")]
+        public string MaDonHangHienThi { get; set; } = string.Empty; // VD: DH202611210001
 
         public string MaNguoiDung { get; set; } = string.Empty; // Id của tài khoản mua hàng
 
@@ -34,6 +40,24 @@ namespace DATN_HKP.Models
 
         [Display(Name = "Phương thức thanh toán")]
         public string PhuongThucThanhToan { get; set; } = "COD"; // COD, VNPay, MoMo
+
+        [Display(Name = "Trạng thái thanh toán")]
+        public string TrangThaiThanhToan { get; set; } = "Chưa thanh toán";
+
+        [Display(Name = "Ảnh xác nhận thanh toán")]
+        public string? HinhAnhThanhToan { get; set; }
+
+        [Display(Name = "Thời điểm tải xác nhận")]
+        public DateTime? NgayThongBaoThanhToan { get; set; }
+
+        [Display(Name = "Thời điểm xác nhận thanh toán")]
+        public DateTime? NgayXacNhanThanhToan { get; set; }
+
+        [Display(Name = "Người xác nhận thanh toán")]
+        public string? NguoiXacNhanThanhToan { get; set; }
+
+        [Display(Name = "Lý do từ chối thanh toán")]
+        public string? LyDoTuChoiThanhToan { get; set; }
 
         [Display(Name = "Ghi chú")]
         public string? GhiChu { get; set; }

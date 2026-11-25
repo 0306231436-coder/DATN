@@ -37,6 +37,10 @@ const normalizeStoreInfo = (record) => ({
   fanpageUrl: getField(record, 'fanpageUrl', 'FanpageUrl'),
   mapEmbedUrl: getField(record, 'mapEmbedUrl', 'MapEmbedUrl'),
   openingHours: getField(record, 'gioMoCua', 'GioMoCua'),
+  qrPayment: normalizeLogoUrl(getField(record, 'qrThanhToan', 'QrThanhToan')),
+  bankName: getField(record, 'tenNganHang', 'TenNganHang'),
+  accountHolder: getField(record, 'tenChuTaiKhoan', 'TenChuTaiKhoan'),
+  accountNumber: getField(record, 'soTaiKhoan', 'SoTaiKhoan'),
 });
 
 const getErrorMessage = (error) => {

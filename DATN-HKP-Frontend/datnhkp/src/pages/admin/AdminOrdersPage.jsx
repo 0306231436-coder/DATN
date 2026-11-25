@@ -7,6 +7,7 @@ import {
   getApiField,
   getApiList,
   getOrderCustomer,
+  getOrderDisplayCode,
   getOrderId,
   getOrderStatusStyle,
   normalizeOrderStatus,
@@ -15,6 +16,8 @@ import { formatCurrency } from './adminData.js';
 import { PageHeading, SearchField } from './AdminComponents.jsx';
 
 const getStatus = (order) => getApiField(order, 'trangThai', 'TrangThai', 'tenTrangThai', 'TenTrangThai') || 'Chưa cập nhật';
+const getPaymentStatus = (order) => getApiField(order, 'trangThaiThanhToan', 'TrangThaiThanhToan') || 'Chưa thanh toán';
+const getPaymentMethod = (order) => getApiField(order, 'phuongThucThanhToan', 'PhuongThucThanhToan') || 'COD';
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState([]);
@@ -22,6 +25,7 @@ export default function AdminOrdersPage() {
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('Tất cả trạng thái');
+  const [paymentFilter, setPaymentFilter] = useState('Tất cả thanh toán');
   const [updatingId, setUpdatingId] = useState(null);
   const [actionError, setActionError] = useState('');
 
@@ -53,11 +57,13 @@ export default function AdminOrdersPage() {
     const normalizedQuery = query.trim().toLocaleLowerCase('vi');
     return orders.filter((order) => {
       const id = getOrderId(order) ?? '';
-      const matchesQuery = `${id} ${getOrderCustomer(order)}`.toLocaleLowerCase('vi').includes(normalizedQuery);
+      const displayCode = getOrderDisplayCode(order) ?? '';
+      const matchesQuery = `${displayCode} ${id} ${getOrderCustomer(order)}`.toLocaleLowerCase('vi').includes(normalizedQuery);
       const matchesStatus = statusFilter === 'Tất cả trạng thái' || getStatus(order) === statusFilter;
-      return matchesQuery && matchesStatus;
+      const matchesPayment = paymentFilter === 'Tất cả thanh toán' || getPaymentStatus(order) === paymentFilter;
+      return matchesQuery && matchesStatus && matchesPayment;
     });
-  }, [orders, query, statusFilter]);
+  }, [orders, query, statusFilter, paymentFilter]);
 
   const statusCounts = useMemo(() => ({
     total: orders.length,
@@ -70,6 +76,14 @@ export default function AdminOrdersPage() {
 
   const handleStatusChange = async (order, nextStatus) => {
     const id = getOrderId(order);
+    const paymentMethod = getPaymentMethod(order);
+    const paymentStatus = getPaymentStatus(order);
+    if (paymentMethod === 'Chuyển khoản ngân hàng'
+      && nextStatus !== 'Đã hủy'
+      && paymentStatus !== 'Đã thanh toán') {
+      setActionError('Đơn chuyển khoản phải được xác nhận thanh toán trước khi chuyển sang bước xử lý hoặc giao hàng.');
+      return;
+    }
     if (id === undefined || !nextStatus
       || normalizeOrderStatus(nextStatus) === normalizeOrderStatus(getStatus(order))) return;
     if (!getAllowedOrderStatuses(getStatus(order)).some(
@@ -90,19 +104,64 @@ export default function AdminOrdersPage() {
       if (!latestAllowedStatuses.some(
         (status) => normalizeOrderStatus(status) === normalizeOrderStatus(nextStatus)
       )) {
-        setActionError(`Đơn hàng #${id} đã thay đổi trạng thái thành "${latestStatus || 'không xác định'}". Không thể áp dụng cập nhật này.`);
+        setActionError(`Đơn hàng ${getOrderDisplayCode(order)} đã thay đổi trạng thái thành "${latestStatus || 'không xác định'}". Không thể áp dụng cập nhật này.`);
         await loadOrders();
         return;
       }
 
       if (normalizeOrderStatus(nextStatus) === normalizeOrderStatus('Đã hủy')
-        && !window.confirm(`Xác nhận hủy đơn hàng #${id}?`)) return;
+        && !window.confirm(`Xác nhận hủy đơn hàng ${getOrderDisplayCode(order)}?`)) return;
 
       await donHangService.updateTrangThai(id, nextStatus);
       await loadOrders();
     } catch (requestError) {
       console.error('Lỗi cập nhật trạng thái đơn hàng:', requestError);
       setActionError(requestError.response?.data?.message || requestError.message || 'Không thể cập nhật trạng thái đơn hàng.');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleViewPayment = async (order) => {
+    const id = getOrderId(order);
+    if (id === undefined) return;
+    try {
+      const blob = await donHangService.getPaymentProof(id);
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (requestError) {
+      setActionError(requestError.response?.data?.message || requestError.message || 'Không thể mở ảnh thanh toán.');
+    }
+  };
+
+  const handleConfirmPayment = async (order) => {
+    const id = getOrderId(order);
+    if (id === undefined || !window.confirm(`Xác nhận đã nhận thanh toán cho đơn ${getOrderDisplayCode(order)}?`)) return;
+    setUpdatingId(id);
+    setActionError('');
+    try {
+      await donHangService.confirmPayment(id);
+      await loadOrders();
+    } catch (requestError) {
+      setActionError(requestError.response?.data?.message || requestError.message || 'Không thể xác nhận thanh toán.');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleRejectPayment = async (order) => {
+    const id = getOrderId(order);
+    if (id === undefined) return;
+    const lyDo = window.prompt(`Nhập lý do từ chối thanh toán cho đơn ${getOrderDisplayCode(order)}:`);
+    if (!lyDo?.trim()) return;
+    setUpdatingId(id);
+    setActionError('');
+    try {
+      await donHangService.rejectPayment(id, lyDo.trim());
+      await loadOrders();
+    } catch (requestError) {
+      setActionError(requestError.response?.data?.message || requestError.message || 'Không thể từ chối thanh toán.');
     } finally {
       setUpdatingId(null);
     }
@@ -132,6 +191,9 @@ export default function AdminOrdersPage() {
             <select aria-label="Lọc trạng thái đơn hàng" className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 outline-none focus:border-green-500" onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}>
               {statuses.map((status) => <option key={status}>{status}</option>)}
             </select>
+            <select aria-label="Lọc trạng thái thanh toán" className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 outline-none focus:border-green-500" onChange={(event) => setPaymentFilter(event.target.value)} value={paymentFilter}>
+              {['Tất cả thanh toán', 'Chưa thanh toán', 'Chờ xác nhận thanh toán', 'Đã thanh toán', 'Thanh toán bị từ chối'].map((status) => <option key={status}>{status}</option>)}
+            </select>
           </div>
         </div>
         {error ? (
@@ -142,21 +204,29 @@ export default function AdminOrdersPage() {
           <>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[850px] text-left">
-                <thead><tr className="bg-slate-50 text-[10px] font-extrabold uppercase tracking-wider text-slate-400"><th className="px-6 py-3">Mã đơn hàng</th><th className="px-4 py-3">Khách hàng</th><th className="px-4 py-3">Ngày đặt</th><th className="px-4 py-3">Tổng tiền</th><th className="px-4 py-3">Trạng thái</th><th className="px-4 py-3">Cập nhật</th></tr></thead>
+                <thead><tr className="bg-slate-50 text-[10px] font-extrabold uppercase tracking-wider text-slate-400"><th className="px-6 py-3">Mã đơn hàng</th><th className="px-4 py-3">Khách hàng</th><th className="px-4 py-3">Ngày đặt</th><th className="px-4 py-3">Tổng tiền</th><th className="px-4 py-3">Trạng thái đơn</th><th className="px-4 py-3">Thanh toán</th><th className="px-4 py-3">Cập nhật</th></tr></thead>
                 <tbody className="divide-y divide-slate-100">
                   {loading ? (
-                    <tr><td className="px-6 py-10 text-center text-sm text-slate-500" colSpan={6}><LoaderCircle className="mr-2 inline animate-spin" size={17} />Đang tải đơn hàng...</td></tr>
+                    <tr><td className="px-6 py-10 text-center text-sm text-slate-500" colSpan={7}><LoaderCircle className="mr-2 inline animate-spin" size={17} />Đang tải đơn hàng...</td></tr>
                   ) : filteredOrders.map((order, index) => {
                     const id = getOrderId(order);
+                    const displayCode = getOrderDisplayCode(order);
                     const status = getStatus(order);
-                    const allowedStatuses = getAllowedOrderStatuses(status);
+                    const paymentStatus = getPaymentStatus(order);
+                    const paymentMethod = getPaymentMethod(order);
+                    const allowedStatuses = getAllowedOrderStatuses(status).filter((allowedStatus) => {
+                      if (paymentMethod !== 'Chuyển khoản ngân hàng' || allowedStatus === 'Đã hủy') {
+                        return true;
+                      }
+                      return paymentStatus === 'Đã thanh toán';
+                    });
                     const customer = getApiField(order, 'nguoiDung', 'NguoiDung', 'khachHang', 'KhachHang', 'user', 'User') || {};
                     const date = getApiField(order, 'ngayDatHang', 'NgayDatHang', 'ngayDat', 'NgayDat', 'createdAt', 'CreatedAt');
                     const amount = getApiField(order, 'tongTien', 'TongTien', 'tongThanhToan', 'TongThanhToan');
                     const options = [status, ...allowedStatuses];
                     return (
                       <tr className="text-xs hover:bg-slate-50/70" key={id ?? index}>
-                        <td className="whitespace-nowrap px-6 py-4 font-bold text-green-800">#{id ?? '—'}</td>
+                        <td className="whitespace-nowrap px-6 py-4 font-bold text-green-800">{displayCode ?? '—'}</td>
                         <td className="whitespace-nowrap px-4 py-4 font-semibold text-slate-700">
                           <p>{getOrderCustomer(order)}</p>
                           <p className="mt-1 text-[10px] font-normal text-slate-400">{getApiField(customer, 'email', 'Email') || ''}</p>
@@ -164,6 +234,16 @@ export default function AdminOrdersPage() {
                         <td className="whitespace-nowrap px-4 py-4 text-slate-500">{formatApiDate(date, { dateStyle: 'short' })}</td>
                         <td className="whitespace-nowrap px-4 py-4 font-bold text-slate-800">{formatCurrency(Number(amount) || 0)}</td>
                         <td className="whitespace-nowrap px-4 py-4"><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${getOrderStatusStyle(status)}`}>{status}</span></td>
+                        <td className="whitespace-nowrap px-4 py-4">
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-700">{paymentStatus}</span>
+                          {paymentStatus === 'Chờ xác nhận thanh toán' && (
+                            <div className="mt-2 flex gap-1">
+                              <button className="rounded-lg border border-slate-200 px-2 py-1 text-[10px] font-bold text-slate-700" onClick={() => handleViewPayment(order)} type="button">Xem ảnh</button>
+                              <button className="rounded-lg bg-green-700 px-2 py-1 text-[10px] font-bold text-white" disabled={updatingId === id} onClick={() => handleConfirmPayment(order)} type="button">Xác nhận</button>
+                              <button className="rounded-lg border border-rose-200 px-2 py-1 text-[10px] font-bold text-rose-700" disabled={updatingId === id} onClick={() => handleRejectPayment(order)} type="button">Từ chối</button>
+                            </div>
+                          )}
+                        </td>
                         <td className="px-4 py-4">
                           <select
                             aria-label={`Cập nhật trạng thái đơn hàng ${id}`}
@@ -178,7 +258,7 @@ export default function AdminOrdersPage() {
                       </tr>
                     );
                   })}
-                  {!loading && filteredOrders.length === 0 && <tr><td className="px-6 py-10 text-center text-sm text-slate-500" colSpan={6}>Không tìm thấy đơn hàng phù hợp.</td></tr>}
+                  {!loading && filteredOrders.length === 0 && <tr><td className="px-6 py-10 text-center text-sm text-slate-500" colSpan={7}>Không tìm thấy đơn hàng phù hợp.</td></tr>}
                 </tbody>
               </table>
             </div>

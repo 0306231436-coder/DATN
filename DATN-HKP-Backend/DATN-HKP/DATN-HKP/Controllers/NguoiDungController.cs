@@ -4,6 +4,11 @@ using DATN_HKP.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 
 namespace DATN_HKP.Controllers
 {
@@ -12,15 +17,18 @@ namespace DATN_HKP.Controllers
     public class NguoiDungController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IConfiguration _configuration;
         private readonly PasswordHasher<NguoiDung> _passwordHasher = new PasswordHasher<NguoiDung>();
 
-        public NguoiDungController(ApplicationDbContext context)
+        public NguoiDungController(ApplicationDbContext context, IConfiguration configuration)
         {
             _context = context;
+            _configuration = configuration;
         }
 
         // GET: api/NguoiDung
         [HttpGet]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<IEnumerable<NguoiDungDto>>> GetNguoiDungs()
         {
             var users = await _context.NguoiDungs
@@ -43,8 +51,16 @@ namespace DATN_HKP.Controllers
 
         // GET: api/NguoiDung/5
         [HttpGet("{id:int}")]
+        [Authorize]
         public async Task<ActionResult<NguoiDungDto>> GetNguoiDung(int id)
         {
+            var isAdmin = User.IsInRole("Admin");
+            var subject = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!isAdmin && (!int.TryParse(subject, out int currentUserId) || currentUserId != id))
+            {
+                return Forbid();
+            }
+
             var user = await _context.NguoiDungs
                 .AsNoTracking()
                 .Where(u => u.MaNguoiDung == id)
@@ -71,6 +87,7 @@ namespace DATN_HKP.Controllers
 
         // POST: api/NguoiDung (Đăng ký)
         [HttpPost]
+        [AllowAnonymous]
         public async Task<ActionResult<object>> CreateNguoiDung([FromBody] NguoiDungCreateDto request)
         {
             if (!ModelState.IsValid)
@@ -130,7 +147,7 @@ namespace DATN_HKP.Controllers
                 TrangThai = user.TrangThai
             };
 
-            var token = "mock_jwt_token_" + Guid.NewGuid().ToString("N");
+            var token = CreateJwtToken(dto);
 
             return CreatedAtAction(nameof(GetNguoiDung), new { id = user.MaNguoiDung }, new
             {
@@ -142,6 +159,7 @@ namespace DATN_HKP.Controllers
 
         // POST: api/NguoiDung/login
         [HttpPost("login")]
+        [AllowAnonymous]
         public async Task<ActionResult<object>> Login([FromBody] NguoiDungLoginDto request)
         {
             if (!ModelState.IsValid)
@@ -187,34 +205,43 @@ namespace DATN_HKP.Controllers
                 return StatusCode(403, new { message = "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ hỗ trợ." });
             }
 
-            var token = "mock_jwt_token_" + Guid.NewGuid().ToString("N");
+            var dto = new NguoiDungDto
+            {
+                MaNguoiDung = user.MaNguoiDung,
+                TenDangNhap = user.TenDangNhap,
+                Email = user.Email,
+                HoTen = user.HoTen,
+                SoDienThoai = user.SoDienThoai,
+                VaiTro = user.VaiTro,
+                NgayTao = user.NgayTao,
+                TrangThai = user.TrangThai
+            };
+            var token = CreateJwtToken(dto);
 
             return Ok(new
             {
                 success = true,
                 message = "Đăng nhập thành công",
                 token = token,
-                user = new NguoiDungDto
-                {
-                    MaNguoiDung = user.MaNguoiDung,
-                    TenDangNhap = user.TenDangNhap,
-                    Email = user.Email,
-                    HoTen = user.HoTen,
-                    SoDienThoai = user.SoDienThoai,
-                    VaiTro = user.VaiTro,
-                    NgayTao = user.NgayTao,
-                    TrangThai = user.TrangThai
-                }
+                user = dto
             });
         }
 
         // PUT: api/NguoiDung/5
         [HttpPut("{id:int}")]
+        [Authorize]
         public async Task<IActionResult> UpdateNguoiDung(int id, [FromBody] NguoiDungUpdateDto request)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
+            }
+
+            var isAdmin = User.IsInRole("Admin");
+            var subject = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!isAdmin && (!int.TryParse(subject, out int currentUserId) || currentUserId != id))
+            {
+                return Forbid();
             }
 
             var user = await _context.NguoiDungs.FindAsync(id);
@@ -236,10 +263,10 @@ namespace DATN_HKP.Controllers
                 user.SoDienThoai = phone;
             }
 
-            if (!string.IsNullOrWhiteSpace(request.VaiTro))
+            if (isAdmin && !string.IsNullOrWhiteSpace(request.VaiTro))
                 user.VaiTro = request.VaiTro;
 
-            if (request.TrangThai.HasValue)
+            if (isAdmin && request.TrangThai.HasValue)
                 user.TrangThai = request.TrangThai.Value;
 
             if (!string.IsNullOrWhiteSpace(request.MatKhauMoi))
@@ -254,6 +281,7 @@ namespace DATN_HKP.Controllers
 
         // PUT: api/NguoiDung/5/trang-thai
         [HttpPut("{id:int}/trang-thai")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> ToggleTrangThai(int id)
         {
             var user = await _context.NguoiDungs.FindAsync(id);
@@ -274,6 +302,7 @@ namespace DATN_HKP.Controllers
 
         // DELETE: api/NguoiDung/5
         [HttpDelete("{id:int}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteNguoiDung(int id)
         {
             var user = await _context.NguoiDungs.FindAsync(id);
@@ -292,6 +321,34 @@ namespace DATN_HKP.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { message = $"Đã xóa người dùng {user.TenDangNhap} thành công" });
+        }
+
+        private string CreateJwtToken(NguoiDungDto user)
+        {
+            var jwtSection = _configuration.GetSection("Jwt");
+            var key = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(jwtSection["Key"] ?? throw new InvalidOperationException("Thiếu khóa JWT.")));
+            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var durationInDays = int.TryParse(jwtSection["DurationInDays"], out var configuredDays)
+                ? configuredDays
+                : 7;
+
+            var claims = new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.MaNguoiDung.ToString()),
+                new Claim(ClaimTypes.Name, user.TenDangNhap),
+                new Claim(ClaimTypes.Email, user.Email),
+                new Claim(ClaimTypes.Role, user.VaiTro)
+            };
+
+            var token = new JwtSecurityToken(
+                issuer: jwtSection["Issuer"],
+                audience: jwtSection["Audience"],
+                claims: claims,
+                expires: DateTime.UtcNow.AddDays(durationInDays),
+                signingCredentials: credentials);
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
         }
     }
 }

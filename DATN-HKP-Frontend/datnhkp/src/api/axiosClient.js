@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-export const API_BASE_URL = 'https://localhost:7287/api';
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || 'http://localhost:5041/api';
 
 const axiosClient = axios.create({
   // URL gốc của ASP.NET Core API
@@ -15,7 +16,10 @@ const axiosClient = axios.create({
 // Tự động gắn token vào header Authorization nếu người dùng đã đăng nhập
 axiosClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  if (token) {
+  const isPublicOrderLookup =
+    typeof config.url === 'string' && config.url.includes('/DonHang/ma/');
+
+  if (token && !isPublicOrderLookup) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;

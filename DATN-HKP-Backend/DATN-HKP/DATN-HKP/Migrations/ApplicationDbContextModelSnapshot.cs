@@ -248,12 +248,32 @@ namespace DATN_HKP.Migrations
                     b.Property<string>("GhiChu")
                         .HasColumnType("longtext");
 
+                    b.Property<string>("HinhAnhThanhToan")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("LyDoTuChoiThanhToan")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("MaDonHangHienThi")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
                     b.Property<string>("MaNguoiDung")
                         .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<DateTime>("NgayDat")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("NgayThongBaoThanhToan")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("NgayXacNhanThanhToan")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("NguoiXacNhanThanhToan")
+                        .HasColumnType("longtext");
 
                     b.Property<string>("PhuongThucThanhToan")
                         .IsRequired()
@@ -274,7 +294,14 @@ namespace DATN_HKP.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<string>("TrangThaiThanhToan")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.HasKey("MaDonHang");
+
+                    b.HasIndex("MaDonHangHienThi")
+                        .IsUnique();
 
                     b.ToTable("DonHangs");
                 });
@@ -305,6 +332,40 @@ namespace DATN_HKP.Migrations
                     b.HasIndex("MaSanPham");
 
                     b.ToTable("hinhanhsanphams");
+                });
+
+            modelBuilder.Entity("DATN_HKP.Models.LogThanhToan", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("HanhDong")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("LyDo")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<int>("MaDonHang")
+                        .HasColumnType("int");
+
+                    b.Property<string>("NguoiThucHien")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime>("ThoiDiem")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MaDonHang");
+
+                    b.ToTable("LogThanhToans");
                 });
 
             modelBuilder.Entity("DATN_HKP.Models.MaGiamGia", b =>
@@ -478,8 +539,20 @@ namespace DATN_HKP.Migrations
                     b.Property<string>("MapEmbedUrl")
                         .HasColumnType("longtext");
 
+                    b.Property<string>("QrThanhToan")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("SoTaiKhoan")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("TenChuTaiKhoan")
+                        .HasColumnType("longtext");
+
                     b.Property<string>("TenCuaHang")
                         .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("TenNganHang")
                         .HasColumnType("longtext");
 
                     b.HasKey("Id");
@@ -799,6 +872,17 @@ namespace DATN_HKP.Migrations
                         .IsRequired();
 
                     b.Navigation("SanPham");
+                });
+
+            modelBuilder.Entity("DATN_HKP.Models.LogThanhToan", b =>
+                {
+                    b.HasOne("DATN_HKP.Models.DonHang", "DonHang")
+                        .WithMany()
+                        .HasForeignKey("MaDonHang")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DonHang");
                 });
 
             modelBuilder.Entity("DATN_HKP.Models.SanPham", b =>

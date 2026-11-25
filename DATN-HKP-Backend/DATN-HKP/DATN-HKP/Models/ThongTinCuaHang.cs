@@ -16,5 +16,9 @@ namespace DATN_HKP.Models
         public string? FanpageUrl { get; set; }
         public string? MapEmbedUrl { get; set; } // Bản đồ Google Maps
         public string? GioMoCua { get; set; }
+        public string? QrThanhToan { get; set; }
+        public string? TenNganHang { get; set; }
+        public string? TenChuTaiKhoan { get; set; }
+        public string? SoTaiKhoan { get; set; }
     }
 }

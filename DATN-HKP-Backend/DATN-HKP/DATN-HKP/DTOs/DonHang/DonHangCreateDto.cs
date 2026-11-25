@@ -38,5 +38,10 @@ namespace DATN_HKP.DTOs.DonHang
         public string TrangThai { get; set; } = string.Empty;
     }
 
-
+    public class TuChoiThanhToanDto
+    {
+        [Required(ErrorMessage = "Vui lòng nhập lý do từ chối")]
+        [StringLength(1000)]
+        public string LyDo { get; set; } = string.Empty;
+    }
 }

@@ -15,7 +15,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("DATN-HKP")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+07a5b7b7b28410dab14713b77159874aae5e9331")]
 [assembly: System.Reflection.AssemblyProductAttribute("DATN-HKP")]
 [assembly: System.Reflection.AssemblyTitleAttribute("DATN-HKP")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

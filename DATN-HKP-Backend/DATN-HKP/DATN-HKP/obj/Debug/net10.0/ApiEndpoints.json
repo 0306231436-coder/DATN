@@ -832,6 +832,43 @@
   },
   {
     "ContainingType": "DATN_HKP.Controllers.DonHangController",
+    "Method": "LayHinhThanhToan",
+    "RelativePath": "api/DonHang/{id}/hinh-thanh-toan",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "DATN_HKP.Controllers.DonHangController",
+    "Method": "ThongBaoThanhToan",
+    "RelativePath": "api/DonHang/{id}/thong-bao-thanh-toan",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "file",
+        "Type": "Microsoft.AspNetCore.Http.IFormFile",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "DATN_HKP.Controllers.DonHangController",
     "Method": "UpdateTrangThai",
     "RelativePath": "api/DonHang/{id}/trang-thai",
     "HttpMethod": "PUT",
@@ -850,6 +887,69 @@
       }
     ],
     "ReturnTypes": []
+  },
+  {
+    "ContainingType": "DATN_HKP.Controllers.DonHangController",
+    "Method": "TuChoiThanhToan",
+    "RelativePath": "api/DonHang/{id}/tu-choi-thanh-toan",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "dto",
+        "Type": "DATN_HKP.DTOs.DonHang.TuChoiThanhToanDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "DATN_HKP.Controllers.DonHangController",
+    "Method": "XacNhanThanhToan",
+    "RelativePath": "api/DonHang/{id}/xac-nhan-thanh-toan",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "DATN_HKP.Controllers.DonHangController",
+    "Method": "GetDonHangByMaHienThi",
+    "RelativePath": "api/DonHang/ma/{maHienThi}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "maHienThi",
+        "Type": "System.String",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "DATN_HKP.Models.DonHang",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
   },
   {
     "ContainingType": "DATN_HKP.Controllers.DonHangController",
@@ -1564,6 +1664,27 @@
         "Name": "model",
         "Type": "DATN_HKP.Models.ThongTinCuaHang",
         "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "DATN_HKP.Controllers.ThongTinCuaHangController",
+    "Method": "UploadQrThanhToan",
+    "RelativePath": "api/ThongTinCuaHang/{id}/qr-thanh-toan",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "file",
+        "Type": "Microsoft.AspNetCore.Http.IFormFile",
+        "IsRequired": false
       }
     ],
     "ReturnTypes": []

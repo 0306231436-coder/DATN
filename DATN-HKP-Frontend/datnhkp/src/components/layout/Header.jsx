@@ -399,6 +399,9 @@ export default function Header() {
           <Link to="/san-pham?danh-muc=Macbook" className="hover:text-green-700 transition">Macbook</Link>
           <Link to="/lien-he" className="hover:text-green-700 transition">Liên hệ</Link>
           <Link to="/gioi-thieu" className="hover:text-green-700 transition">Giới thiệu</Link>
+          {!user && (
+            <Link to="/tra-cuu-don-hang" className="hover:text-green-700 transition">Tra cứu đơn hàng</Link>
+          )}
         </nav>
       </div>
 
@@ -424,7 +427,11 @@ export default function Header() {
           <nav className="flex flex-col gap-3 text-sm font-semibold text-slate-700">
             <Link to="/" onClick={() => setMobileMenuOpen(false)}>Trang chủ</Link>
             <Link to="/san-pham" onClick={() => setMobileMenuOpen(false)}>Tất cả sản phẩm</Link>
-            <Link to="/don-hang" onClick={() => setMobileMenuOpen(false)}>Đơn hàng của tôi</Link>
+            {user ? (
+              <Link to="/don-hang" onClick={() => setMobileMenuOpen(false)}>Đơn hàng của tôi</Link>
+            ) : (
+              <Link to="/tra-cuu-don-hang" onClick={() => setMobileMenuOpen(false)}>Tra cứu đơn hàng</Link>
+            )}
           </nav>
         </div>
       )}

@@ -43,6 +43,10 @@ const getField = (value, ...keys) => {
   return undefined;
 };
 
+const getDisplayOrderCode = (order) =>
+  getField(order, 'maDonHangHienThi', 'MaDonHangHienThi')
+  || getField(order, 'maDonHang', 'MaDonHang', 'id', 'Id');
+
 const getUserId = (user) =>
   getField(user, 'maNguoiDung', 'MaNguoiDung', 'id', 'Id', 'userId', 'UserId');
 
@@ -122,6 +126,7 @@ export default function OrderHistoryPage() {
   });
   const [actionOrderId, setActionOrderId] = useState(null);
   const [actionError, setActionError] = useState('');
+  const [paymentProofFile, setPaymentProofFile] = useState(null);
 
   const loadOrders = useCallback(async () => {
     if (!userId) {
@@ -170,12 +175,13 @@ export default function OrderHistoryPage() {
     const normalizedQuery = query.trim().toLocaleLowerCase('vi');
     return orders.filter((order) => {
       const orderId = getField(order, 'maDonHang', 'MaDonHang', 'id', 'Id');
+      const displayCode = getDisplayOrderCode(order);
       const status = getField(order, 'trangThai', 'TrangThai', 'tenTrangThai', 'TenTrangThai');
       const matchesFilter =
         activeFilter === 'all' || getStatusCategory(status) === activeFilter;
       const matchesQuery =
         !normalizedQuery ||
-        `${orderId || ''} ${status || ''}`
+        `${displayCode || ''} ${orderId || ''} ${status || ''}`
           .toLocaleLowerCase('vi')
           .includes(normalizedQuery);
       return matchesFilter && matchesQuery;
@@ -225,6 +231,25 @@ export default function OrderHistoryPage() {
     });
   };
 
+  const handleUploadPaymentProof = async (order) => {
+    const orderId = getField(order, 'maDonHang', 'MaDonHang', 'id', 'Id');
+    if (!orderId || !paymentProofFile) {
+      setActionError('Vui lòng chọn ảnh xác nhận thanh toán.');
+      return;
+    }
+    setActionOrderId(orderId);
+    setActionError('');
+    try {
+      await donHangService.uploadPaymentProof(orderId, paymentProofFile);
+      setPaymentProofFile(null);
+      await loadOrders();
+    } catch (requestError) {
+      setActionError(requestError.response?.data?.message || requestError.message || 'Không thể tải ảnh xác nhận.');
+    } finally {
+      setActionOrderId(null);
+    }
+  };
+
   // ===== HỦY ĐƠN – luôn kiểm tra trạng thái mới nhất từ server =====
   const handleCancelOrder = async (order) => {
     const orderId = getField(order, 'maDonHang', 'MaDonHang', 'id', 'Id');
@@ -251,7 +276,7 @@ export default function OrderHistoryPage() {
       // 2. Kiểm tra lại trạng thái
       if (!isPendingStatus(latestStatus)) {
         setActionError(
-          `Đơn hàng #${orderId} đã được cập nhật trạng thái thành "${
+          `Đơn hàng ${getDisplayOrderCode(order)} đã được cập nhật trạng thái thành "${
             latestStatus || 'không xác định'
           }". Không thể hủy.`
         );
@@ -261,7 +286,7 @@ export default function OrderHistoryPage() {
 
       // 3. Xác nhận với người dùng
       const confirmed = window.confirm(
-        `Bạn có chắc muốn hủy đơn hàng #${orderId}?`
+        `Bạn có chắc muốn hủy đơn hàng ${getDisplayOrderCode(order)}?`
       );
       if (!confirmed) return;
 
@@ -509,10 +534,17 @@ export default function OrderHistoryPage() {
           <div className="mt-5 space-y-4">
             {filteredOrders.map((order, index) => {
               const orderId = getField(order, 'maDonHang', 'MaDonHang', 'id', 'Id') ?? `#${index + 1}`;
-              const displayOrderId = String(orderId).startsWith('#') ? orderId : `#${orderId}`;
+              const displayOrderId = getDisplayOrderCode(order) ?? `#${index + 1}`;
               const status =
                 getField(order, 'trangThai', 'TrangThai', 'tenTrangThai', 'TenTrangThai') ||
                 'Chưa cập nhật';
+              const paymentStatus =
+                getField(order, 'trangThaiThanhToan', 'TrangThaiThanhToan') ||
+                'Chưa thanh toán';
+              const paymentMethod =
+                getField(order, 'phuongThucThanhToan', 'PhuongThucThanhToan');
+              const paymentReason =
+                getField(order, 'lyDoTuChoiThanhToan', 'LyDoTuChoiThanhToan');
               const category = getStatusCategory(status);
               const orderDate = getField(
                 order,
@@ -575,6 +607,9 @@ export default function OrderHistoryPage() {
                     >
                       {status}
                     </span>
+                    <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 ring-1 ring-inset ring-slate-200">
+                      Thanh toán: {paymentStatus}
+                    </span>
                   </div>
 
                   <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
@@ -603,7 +638,7 @@ export default function OrderHistoryPage() {
                         </p>
                       ) : (
                         <p className="text-sm font-semibold text-slate-700">
-                          Đơn hàng #{orderId}
+                          Đơn hàng {displayOrderId}
                         </p>
                       )}
                       <p className="mt-1 text-xs text-slate-500">
@@ -657,6 +692,33 @@ export default function OrderHistoryPage() {
                         </button>
                       </div>
                     )}
+                    {paymentMethod === 'Chuyển khoản ngân hàng' &&
+                      (paymentStatus === 'Chưa thanh toán' ||
+                        paymentStatus === 'Thanh toán bị từ chối') && (
+                        <div className="w-full rounded-xl border border-amber-200 bg-amber-50 p-3 sm:w-auto">
+                          {paymentReason && (
+                            <p className="mb-2 text-xs font-semibold text-rose-700">
+                              Lý do từ chối: {paymentReason}
+                            </p>
+                          )}
+                          <input
+                            accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                            className="block max-w-64 text-xs"
+                            onChange={(event) =>
+                              setPaymentProofFile(event.target.files?.[0] || null)
+                            }
+                            type="file"
+                          />
+                          <button
+                            className="mt-2 rounded-lg bg-green-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                            disabled={isSubmittingOrder || !paymentProofFile}
+                            onClick={() => handleUploadPaymentProof(order)}
+                            type="button"
+                          >
+                            {isSubmittingOrder ? 'Đang tải...' : 'Tải ảnh xác nhận'}
+                          </button>
+                        </div>
+                      )}
                   </div>
 
                   {isExpanded && (
@@ -772,7 +834,7 @@ export default function OrderHistoryPage() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wider text-green-700">
-                  Đơn hàng #{getField(editingOrder, 'maDonHang', 'MaDonHang', 'id', 'Id')}
+                  Đơn hàng {getDisplayOrderCode(editingOrder)}
                 </p>
                 <h2 className="mt-1 text-xl font-black text-slate-900" id="edit-order-title">
                   Chỉnh sửa thông tin giao hàng

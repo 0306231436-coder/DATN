@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -20,6 +20,7 @@ import { diaChiNguoiDungService } from '../../services/diaChiNguoiDungService.js
 import { provinceService } from '../../services/provinceService.js';
 import { getStoredUser } from '../../services/authUtils.js';
 import { getProductImageUrl, handleProductImageError } from '../../services/imageUtils.js';
+import { useStoreInfo } from '../../context/StoreInfoContext.jsx';
 
 const formatPrice = (price) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
@@ -28,6 +29,7 @@ export default function CheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { cart, loadingCart, user, clearCart, refreshCart } = useStore();
+  const { storeInfo } = useStoreInfo();
 
   // Dọn dẹp sessionStorage cũ
   useEffect(() => {
@@ -55,6 +57,32 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState('cod');
   const [notice, setNotice] = useState({ type: '', message: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createdBankOrder, setCreatedBankOrder] = useState(null);
+  const [paymentProofFile, setPaymentProofFile] = useState(null);
+  const [paymentProofPreview, setPaymentProofPreview] = useState('');
+  const [isUploadingPayment, setIsUploadingPayment] = useState(false);
+  const [isPaymentProofUploaded, setIsPaymentProofUploaded] = useState(false);
+  const paymentProofInputRef = useRef(null);
+
+  useEffect(() => {
+    if (!paymentProofFile) {
+      setPaymentProofPreview('');
+      return undefined;
+    }
+
+    const previewUrl = URL.createObjectURL(paymentProofFile);
+    setPaymentProofPreview(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [paymentProofFile]);
+
+  const handleCancelPaymentProof = () => {
+    setPaymentProofFile(null);
+    setPaymentProofPreview('');
+    setIsPaymentProofUploaded(false);
+    if (paymentProofInputRef.current) {
+      paymentProofInputRef.current.value = '';
+    }
+  };
 
   // Tỉnh / Phường
   const [provinces, setProvinces] = useState([]);
@@ -239,12 +267,48 @@ export default function CheckoutPage() {
   );
 
   // ==================== SUBMIT ====================
+  const uploadPaymentProof = async (orderIdOverride = null) => {
+    const orderId = orderIdOverride || (createdBankOrder?.maDonHang ?? createdBankOrder?.MaDonHang);
+    if (!orderId || !paymentProofFile) {
+      setNotice({ type: 'error', message: 'Vui lòng chọn ảnh xác nhận thanh toán.' });
+      return false;
+    }
+    setIsUploadingPayment(true);
+    setNotice({ type: '', message: '' });
+    try {
+      await donHangService.uploadPaymentProof(orderId, paymentProofFile);
+      setNotice({
+        type: 'success',
+        message: 'Đã tải ảnh xác nhận. Đơn hàng đang chờ Admin xác nhận thanh toán.',
+      });
+      setIsPaymentProofUploaded(true);
+      return true;
+    } catch (error) {
+      setNotice({
+        type: 'error',
+        message: error.response?.data?.message || error.message || 'Không thể tải ảnh xác nhận.',
+      });
+      setIsPaymentProofUploaded(false);
+      return false;
+    } finally {
+      setIsUploadingPayment(false);
+    }
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setNotice({ type: '', message: '' });
 
     if (!checkoutItems.length) {
       setNotice({ type: 'error', message: 'Không có sản phẩm nào để đặt hàng.' });
+      return;
+    }
+
+    if (paymentMethod === 'bank' && !paymentProofFile) {
+      setNotice({
+        type: 'error',
+        message: 'Vui lòng đính kèm ảnh đã thanh toán chuyển khoản trước khi đặt hàng.',
+      });
       return;
     }
 
@@ -326,18 +390,46 @@ export default function CheckoutPage() {
       const res = await donHangService.createDonHang(payload);
       const createdOrder = res?.data || res;
 
-      if (!isBuyNow && typeof clearCart === 'function') {
-        clearCart();
+      if (paymentMethod === 'bank') {
+        setCreatedBankOrder(createdOrder);
+        const orderId = createdOrder?.maDonHang ?? createdOrder?.MaDonHang;
+        const uploaded = await uploadPaymentProof(orderId);
+        if (!uploaded) {
+          setNotice({
+            type: 'error',
+            message: 'Đơn hàng đã được tạo nhưng ảnh xác nhận chưa tải lên. Vui lòng nhấn nút gửi lại ảnh xác nhận.',
+          });
+          return;
+        }
+
+        if (!isBuyNow && typeof clearCart === 'function') {
+          clearCart();
+        }
+        setNotice({
+          type: 'success',
+          message: `Đặt hàng và tải ảnh xác nhận thành công! Mã đơn hàng của bạn là ${createdOrder?.maDonHangHienThi || createdOrder?.MaDonHangHienThi || createdOrder?.maDonHang || createdOrder?.MaDonHang || ''}.`,
+        });
+        const orderCode = createdOrder?.maDonHangHienThi || createdOrder?.MaDonHangHienThi || createdOrder?.maDonHang || createdOrder?.MaDonHang;
+        setTimeout(() => {
+          navigate(isGuest
+            ? `/tra-cuu-don-hang${orderCode ? `?ma=${encodeURIComponent(orderCode)}` : ''}`
+            : '/don-hang');
+        }, 2000);
+      } else {
+        if (!isBuyNow && typeof clearCart === 'function') {
+          clearCart();
+        }
+        setNotice({
+          type: 'success',
+          message: `Đặt hàng thành công! Mã đơn hàng của bạn là ${createdOrder?.maDonHangHienThi || createdOrder?.MaDonHangHienThi || createdOrder?.maDonHang || createdOrder?.MaDonHang || ''}.`,
+        });
+        const orderCode = createdOrder?.maDonHangHienThi || createdOrder?.MaDonHangHienThi || createdOrder?.maDonHang || createdOrder?.MaDonHang;
+        setTimeout(() => {
+          navigate(isGuest
+            ? `/tra-cuu-don-hang${orderCode ? `?ma=${encodeURIComponent(orderCode)}` : ''}`
+            : '/don-hang');
+        }, 2000);
       }
-
-      setNotice({
-        type: 'success',
-        message: `Đặt hàng thành công! Mã đơn hàng của bạn là #${createdOrder?.maDonHang || createdOrder?.MaDonHang || ''}.`,
-      });
-
-      setTimeout(() => {
-        navigate(isGuest ? '/san-pham' : '/don-hang');
-      }, 2000);
     } catch (error) {
       console.error('Lỗi khi đặt hàng:', error);
       const errorMsg =
@@ -753,6 +845,103 @@ export default function CheckoutPage() {
                   </label>
                 ))}
               </div>
+              {paymentMethod === 'bank' && (
+                <div className="mt-4 grid gap-4 rounded-xl border border-green-100 bg-green-50/40 p-4">
+                  <div className="text-sm text-slate-700">
+                    <p className="font-bold text-slate-900">{storeInfo?.bankName || 'Thông tin ngân hàng'}</p>
+                    <p className="mt-2">Chủ tài khoản: <strong>{storeInfo?.accountHolder || 'Chưa cập nhật'}</strong></p>
+                    <p>Số tài khoản: <strong>{storeInfo?.accountNumber || 'Chưa cập nhật'}</strong></p>
+                    {createdBankOrder && !isPaymentProofUploaded && (
+                      <p className="mt-2">Nội dung chuyển khoản: <strong>{createdBankOrder.maDonHangHienThi || createdBankOrder.MaDonHangHienThi}</strong></p>
+                    )}
+                  </div>
+                  {storeInfo?.qrPayment ? (
+                    <img className="mx-auto aspect-square w-full rounded-lg bg-white object-contain p-3 sm:w-1/2" src={storeInfo.qrPayment} alt="QR thanh toán" />
+                  ) : (
+                    <div className="mx-auto grid aspect-square w-full place-items-center rounded-lg bg-white text-xs text-slate-400 sm:w-1/2">Chưa có QR</div>
+                  )}
+                  <div className="rounded-lg border border-green-200 bg-white p-4">
+                    <label className="block text-sm font-bold text-slate-900" htmlFor="payment-proof">
+                      Ảnh đã thanh toán chuyển khoản <span className="text-red-600">*</span>
+                    </label>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Chọn ảnh chụp biên lai hoặc giao dịch thành công để tiếp tục đặt hàng.
+                    </p>
+                    <input
+                      accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                      className="mt-3 block w-full text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-green-700 file:px-4 file:py-2 file:text-xs file:font-bold file:text-white"
+                      id="payment-proof"
+                      ref={paymentProofInputRef}
+                      onChange={(event) => {
+                        setPaymentProofFile(event.target.files?.[0] || null);
+                        setIsPaymentProofUploaded(false);
+                      }}
+                      type="file"
+                    />
+                    {paymentProofFile && (
+                      <div className="mt-3 flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                        {paymentProofPreview && (
+                          <img
+                            alt="Xem trước ảnh thanh toán"
+                            className="size-16 shrink-0 rounded-md object-cover"
+                            src={paymentProofPreview}
+                          />
+                        )}
+                        <p className="min-w-0 flex-1 truncate text-xs font-semibold text-green-700">
+                          Đã chọn: {paymentProofFile.name}
+                        </p>
+                        <button
+                          className="shrink-0 rounded-md border border-red-200 px-2.5 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            handleCancelPaymentProof();
+                          }}
+                          type="button"
+                        >
+                          Hủy ảnh
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              {createdBankOrder && !isPaymentProofUploaded && (
+                <div className="mt-4 rounded-xl border border-slate-200 p-4">
+                  <p className="text-sm font-bold text-slate-900">Tải ảnh xác nhận thanh toán</p>
+                  {paymentProofFile && (
+                    <div className="mt-3 flex items-center gap-3">
+                      {paymentProofPreview && (
+                        <img
+                          alt="Xem trước ảnh thanh toán"
+                          className="size-16 shrink-0 rounded-md object-cover"
+                          src={paymentProofPreview}
+                        />
+                      )}
+                      <p className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-700">
+                        {paymentProofFile.name}
+                      </p>
+                      <button
+                        className="shrink-0 rounded-md border border-red-200 px-2.5 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          handleCancelPaymentProof();
+                        }}
+                        type="button"
+                      >
+                        Hủy ảnh
+                      </button>
+                    </div>
+                  )}
+                  <button
+                    className="mt-3 rounded-lg bg-green-700 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+                    disabled={isUploadingPayment || !paymentProofFile}
+                    onClick={(event) => { event.preventDefault(); uploadPaymentProof(); }}
+                    type="button"
+                  >
+                    {isUploadingPayment ? 'Đang tải...' : 'Gửi ảnh xác nhận'}
+                  </button>
+                </div>
+              )}
             </section>
           </div>
 
@@ -848,7 +1037,8 @@ export default function CheckoutPage() {
                 isSubmitting ||
                 isLoadingProvinces ||
                 (isAddingNew && provinces.length === 0) ||
-                isLoadingAddresses
+                isLoadingAddresses ||
+                (paymentMethod === 'bank' && !paymentProofFile)
               }
               className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-green-700 px-4 text-sm font-bold text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:bg-slate-300"
               type="submit"

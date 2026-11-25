@@ -1422,6 +1422,45 @@
         }
       }
     },
+    "/api/DonHang/ma/{maHienThi}": {
+      "get": {
+        "tags": [
+          "DonHang"
+        ],
+        "parameters": [
+          {
+            "name": "maHienThi",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DATN_HKP.Models.DonHang"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DATN_HKP.Models.DonHang"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DATN_HKP.Models.DonHang"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/DonHang/user/{maNguoiDung}": {
       "get": {
         "tags": [
@@ -1466,6 +1505,137 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/DonHang/{id}/thong-bao-thanh-toan": {
+      "post": {
+        "tags": [
+          "DonHang"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              },
+              "encoding": {
+                "file": {
+                  "style": "form"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/DonHang/{id}/xac-nhan-thanh-toan": {
+      "put": {
+        "tags": [
+          "DonHang"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/DonHang/{id}/tu-choi-thanh-toan": {
+      "put": {
+        "tags": [
+          "DonHang"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DATN_HKP.DTOs.DonHang.TuChoiThanhToanDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DATN_HKP.DTOs.DonHang.TuChoiThanhToanDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/DATN_HKP.DTOs.DonHang.TuChoiThanhToanDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/DonHang/{id}/hinh-thanh-toan": {
+      "get": {
+        "tags": [
+          "DonHang"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         }
       }
@@ -2668,6 +2838,49 @@
         }
       }
     },
+    "/api/ThongTinCuaHang/{id}/qr-thanh-toan": {
+      "post": {
+        "tags": [
+          "ThongTinCuaHang"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              },
+              "encoding": {
+                "file": {
+                  "style": "form"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/ThuongHieu": {
       "get": {
         "tags": [
@@ -3058,6 +3271,20 @@
               "$ref": "#/components/schemas/DATN_HKP.DTOs.DonHang.ChiTietDonHangCreateDto"
             },
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DATN_HKP.DTOs.DonHang.TuChoiThanhToanDto": {
+        "required": [
+          "lyDo"
+        ],
+        "type": "object",
+        "properties": {
+          "lyDo": {
+            "maxLength": 1000,
+            "minLength": 0,
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -3722,6 +3949,12 @@
             "type": "integer",
             "format": "int32"
           },
+          "maDonHangHienThi": {
+            "maxLength": 30,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          },
           "maNguoiDung": {
             "type": "string",
             "nullable": true
@@ -3751,6 +3984,32 @@
             "nullable": true
           },
           "phuongThucThanhToan": {
+            "type": "string",
+            "nullable": true
+          },
+          "trangThaiThanhToan": {
+            "type": "string",
+            "nullable": true
+          },
+          "hinhAnhThanhToan": {
+            "type": "string",
+            "nullable": true
+          },
+          "ngayThongBaoThanhToan": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "ngayXacNhanThanhToan": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "nguoiXacNhanThanhToan": {
+            "type": "string",
+            "nullable": true
+          },
+          "lyDoTuChoiThanhToan": {
             "type": "string",
             "nullable": true
           },
@@ -4021,6 +4280,22 @@
             "nullable": true
           },
           "gioMoCua": {
+            "type": "string",
+            "nullable": true
+          },
+          "qrThanhToan": {
+            "type": "string",
+            "nullable": true
+          },
+          "tenNganHang": {
+            "type": "string",
+            "nullable": true
+          },
+          "tenChuTaiKhoan": {
+            "type": "string",
+            "nullable": true
+          },
+          "soTaiKhoan": {
             "type": "string",
             "nullable": true
           }

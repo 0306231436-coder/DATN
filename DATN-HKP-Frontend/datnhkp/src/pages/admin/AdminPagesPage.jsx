@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
-import { LoaderCircle, Save, Store } from 'lucide-react';
+import { LoaderCircle, Save, Store, Upload } from 'lucide-react';
 import { PageHeading } from './AdminComponents.jsx';
 import { thongTinCuaHangService } from '../../services/thongTinCuaHangService.js';
 import { useStoreInfo } from '../../context/StoreInfoContext.jsx';
+import { API_BASE_URL } from '../../api/axiosClient.js';
+
+const API_ORIGIN = new URL(API_BASE_URL).origin;
 
 const emptyForm = {
   tenCuaHang: '',
@@ -13,6 +16,10 @@ const emptyForm = {
   fanpageUrl: '',
   mapEmbedUrl: '',
   logo: '',
+  qrThanhToan: '',
+  tenNganHang: '',
+  tenChuTaiKhoan: '',
+  soTaiKhoan: '',
 };
 
 const getField = (record, camelCase, pascalCase) => record?.[camelCase] ?? record?.[pascalCase] ?? '';
@@ -31,6 +38,8 @@ export default function AdminPagesPage() {
   const [loadError, setLoadError] = useState('');
   const [actionError, setActionError] = useState('');
   const [success, setSuccess] = useState('');
+  const [qrFile, setQrFile] = useState(null);
+  const [uploadingQr, setUploadingQr] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -53,6 +62,10 @@ export default function AdminPagesPage() {
             fanpageUrl: getField(record, 'fanpageUrl', 'FanpageUrl'),
             mapEmbedUrl: getField(record, 'mapEmbedUrl', 'MapEmbedUrl'),
             logo: getField(record, 'logo', 'Logo'),
+            qrThanhToan: getField(record, 'qrThanhToan', 'QrThanhToan'),
+            tenNganHang: getField(record, 'tenNganHang', 'TenNganHang'),
+            tenChuTaiKhoan: getField(record, 'tenChuTaiKhoan', 'TenChuTaiKhoan'),
+            soTaiKhoan: getField(record, 'soTaiKhoan', 'SoTaiKhoan'),
           });
         }
       })
@@ -94,6 +107,14 @@ export default function AdminPagesPage() {
       const savedRecord = getRecord(response);
       const savedId = getField(savedRecord, 'id', 'Id');
       if (savedId) setRecordId(savedId);
+      if (savedId && qrFile) {
+        setUploadingQr(true);
+        const qrResponse = await thongTinCuaHangService.uploadQr(savedId, qrFile);
+        const qrRecord = getRecord(qrResponse);
+        const qrUrl = getField(qrRecord, 'qrThanhToan', 'QrThanhToan');
+        if (qrUrl) setForm((current) => ({ ...current, qrThanhToan: qrUrl }));
+        setQrFile(null);
+      }
       const updatedStoreInfo = await refreshStoreInfo();
       if (updatedStoreInfo) {
         setSuccess('Đã lưu thông tin cửa hàng.');
@@ -105,6 +126,7 @@ export default function AdminPagesPage() {
       setActionError(getErrorMessage(requestError));
     } finally {
       setSaving(false);
+      setUploadingQr(false);
     }
   };
 
@@ -116,6 +138,9 @@ export default function AdminPagesPage() {
     { name: 'diaChi', label: 'Địa chỉ' },
     { name: 'gioMoCua', label: 'Giờ mở cửa' },
     { name: 'logo', label: 'Đường dẫn logo' },
+    { name: 'tenNganHang', label: 'Tên ngân hàng' },
+    { name: 'tenChuTaiKhoan', label: 'Tên chủ tài khoản' },
+    { name: 'soTaiKhoan', label: 'Số tài khoản' },
     { name: 'fanpageUrl', label: 'Đường dẫn fanpage', type: 'url' },
     { name: 'mapEmbedUrl', label: 'Đường dẫn nhúng bản đồ', type: 'url' },
   ];
@@ -160,6 +185,37 @@ export default function AdminPagesPage() {
                   />
                 </div>
               ))}
+            </div>
+            <div className="border-t border-slate-100 p-5">
+              <div className="mb-4">
+                <h3 className="text-sm font-extrabold text-slate-900">Thanh toán chuyển khoản</h3>
+                <p className="mt-1 text-xs text-slate-500">Cập nhật mã QR và tài khoản duy nhất dùng cho thanh toán của cửa hàng.</p>
+              </div>
+              <div className="grid gap-5 sm:grid-cols-[180px_1fr]">
+                <div className="grid min-h-40 place-items-center overflow-hidden rounded-xl border border-dashed border-slate-300 bg-slate-50">
+                  {form.qrThanhToan ? (
+                    <img
+                      alt="QR thanh toán hiện tại"
+                      className="max-h-44 max-w-full object-contain p-2"
+                      src={form.qrThanhToan.startsWith('http') ? form.qrThanhToan : `${API_ORIGIN}${form.qrThanhToan}`}
+                    />
+                  ) : (
+                    <span className="text-xs text-slate-400">Chưa có mã QR</span>
+                  )}
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-700" htmlFor="qrThanhToanFile">Tải mã QR mới</label>
+                  <input
+                    accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                    className="block w-full rounded-xl border border-slate-200 px-3 py-2 text-xs file:mr-3 file:border-0 file:bg-green-50 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-green-800"
+                    disabled={saving || uploadingQr}
+                    id="qrThanhToanFile"
+                    onChange={(event) => setQrFile(event.target.files?.[0] || null)}
+                    type="file"
+                  />
+                  <p className="mt-2 text-[11px] text-slate-500">JPG, PNG hoặc WebP; tối đa 5 MB.</p>
+                </div>
+              </div>
             </div>
             <div className="flex justify-end border-t border-slate-100 p-5">
               <button
